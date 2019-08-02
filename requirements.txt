@@ -5,7 +5,7 @@ async-timeout==2.0.1
 attrs==19.1.0
 autobahn==19.5.1
 Automat==0.7.0
-certifi==2019.3.9
+certifi==2019.3.9l
 channels==2.2.0
 channels-redis==2.4.0
 chardet==3.0.4
@@ -53,7 +53,8 @@ Werkzeug==0.15.4
 xlrd==1.0.0
 xlwt==1.2.0
 zope.interface==4.6.0
-gunicorn==19.9.0anaconda==0.0.1.1
+gunicorn==19.9.0
+anaconda==0.0.1.1
 certifi==2019.6.16
 chardet==3.0.4
 cycler==0.10.0
@@ -79,3 +80,4 @@ six==1.12.0
 sklearn==0.0
 sqlparse==0.3.0
 urllib3==1.25.3
+
