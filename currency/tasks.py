@@ -8,7 +8,7 @@ from .training import train,transform,predict_values,predict_transform
 import requests
 # from django.core.cache import cache
 from django_redis import get_redis_connection
-cache= get_redis_connection("default")
+cache= get_redis_connectiolsn("default")
 
 
 def validate_fields(requests):
@@ -43,6 +43,9 @@ def validate_fields(requests):
         return "Incorrect data format, should be YYYY-MM-DD"
 
 
+
+
+
 def process(request):
     
     # Retrieve the data
@@ -70,6 +73,11 @@ def upload(request):
     data['date'] = request.POST.get('date')
     data['maxdays'] = request.POST.get('maxdays')
     data['amount'] = request.POST.get('amount')
+
+
+    if pd.to_datetime(data['date'])> pd.datetime.now():
+        data['req_date']=data['date']
+        data['date']=str(pd.datetime.now().date().strftime('%Y-%m-%d'))
     return data
 
 
@@ -161,7 +169,9 @@ def get_data(data):
     # if more data is to be retrieved
     if flag:
         url='https://api.exchangeratesapi.io/history?start_at={}&end_at={}'.format(retrieve_start_date,retrieve_end_date)
+        print(url)
         response=requests.get(url).json()['rates']
+
         for key,value in response.items():
             # retrieve the values and set it in the cache
             cache.hmset(str(key),value)
@@ -183,7 +193,7 @@ def predict(logreg,data):
     
     # predict for all the dates starting for start date
     for wait_days in range(int(data['maxdays'])+1):
-        considered_date=pd.Series(pd.to_datetime(data['date'])+pd.DateOffset(wait_days))
+        considered_date=pd.Series(pd.to_datetime(data['req_date'])+pd.DateOffset(wait_days))
         forcast_dict['date']=considered_date.values
 
         #  Transform as required for input in the model
