@@ -8,7 +8,7 @@ from .training import train,transform,predict_values,predict_transform
 import requests
 # from django.core.cache import cache
 from django_redis import get_redis_connection
-cache= get_redis_connectiolsn("default")
+cache= get_redis_connection("local")
 
 
 def validate_fields(requests):
@@ -16,7 +16,7 @@ def validate_fields(requests):
     date=data['date']
     available_currencies=['CAD', 'HKD', 'ISK', 'PHP', 'DKK', 'HUF', 'CZK', 'AUD', 'RON', 'SEK', 'IDR', 'INR',
                           'BRL', 'RUB', 'HRK', 'JPY', 'THB', 'CHF', 'SGD', 'PLN', 'BGN', 'TRY', 'CNY', 'NOK', 'NZD',
-                          'ZAR', 'USD', 'MXN', 'ILS', 'GBP', 'KRW', 'MYR','EUR']
+                          'ZAR', 'USD', 'MXN', 'ILS', 'GBP', 'KRW', 'MYR']
     if len(data['base'])!=3:
         return "Please enter valid base currency"
     elif data['base'] not in available_currencies:
@@ -73,10 +73,9 @@ def upload(request):
     data['date'] = request.POST.get('date')
     data['maxdays'] = request.POST.get('maxdays')
     data['amount'] = request.POST.get('amount')
-
+    data['req_date'] = data['date']
 
     if pd.to_datetime(data['date'])> pd.datetime.now():
-        data['req_date']=data['date']
         data['date']=str(pd.datetime.now().date().strftime('%Y-%m-%d'))
     return data
 
@@ -87,89 +86,128 @@ def get_data(data):
     prev_2M_date = pd.to_datetime(start_date)+pd.DateOffset(months=-2)
     df_dict={'base':[],'date':[],'target':[]}
     
-    retrieve_start_date=prev_2M_date.date()
-    retrieve_end_date=start_date
+    retrieve_start_date=prev_2M_date
+    retrieve_end_date=pd.to_datetime(start_date).date()
     flag=0
 
-    # case where the cache is null ie accessing for the first time
-    if not cache.get('min_date1'):
-        cache.set('min_date1',str(prev_2M_date.date()))
-    if not cache.get('max_date1'):
-        cache.set('max_date1',str(start_date))
+    ############################# Deprecated Logic ############################
 
-    # variable to hold the start and end dates to be retrieved from cache
-    start_cache_date=str(prev_2M_date.date())
-    end_cache_date=start_date
-
-    # case 1  : required min date is greater than the max cached date
-    if pd.to_datetime(prev_2M_date)> pd.to_datetime(str(cache.get('max_date1'), 'utf-8')):
-        retrieve_start_date=str(prev_2M_date.date())
-        retrieve_end_date=start_date
-        cache.set('min_date1',str(prev_2M_date.date()))
-        cache.set('max_date1',start_date)
-        flag=1
-
-    # case 2: required max date is greater than the min cached date
-    elif pd.to_datetime(start_date) < pd.to_datetime(str(cache.get('min_date1'), 'utf-8')):
-        retrieve_start_date = start_date
-        retrieve_end_date = str(prev_2M_date.date())
-        cache.set('min_date1', str(prev_2M_date.date()))
-        cache.set('max_date1', start_date)
-        flag=1
-
-    # case 3:required min date is greater than the min cached date but required max date is less than the cached max date
-    elif (pd.to_datetime(prev_2M_date)> pd.to_datetime(str(cache.get('min_date1'), 'utf-8'))) and not (pd.to_datetime(start_date) < pd.to_datetime(str(cache.get('max_date1'), 'utf-8'))):
-        start_cache_date=str(pd.to_datetime(prev_2M_date).date())
-        end_cache_date=cache.get('max_date1')
-        retrieve_start_date=cache.get('max_date1')
-        retrieve_end_date=start_date
-        cache.set('max_date1',start_date)
-        flag=1
-
-    # case4 : required min date is less than the cached min date
-    elif pd.to_datetime(prev_2M_date) < pd.to_datetime(str(cache.get('min_date1'), 'utf-8')) :
-        start_cache_date=cache.get('min_date1')
-        end_cache_date=start_date
-        retrieve_start_date=str(prev_2M_date.date())
-        retrieve_end_date=cache.get('min_date1')
-        cache.set('min_date1',str(prev_2M_date.date()))
-        flag=1
-
-    start_cache_date = str(start_cache_date, 'utf-8') if isinstance(start_cache_date, bytes) else start_cache_date
-    end_cache_date = str(end_cache_date, 'utf-8') if isinstance(end_cache_date, bytes) else end_cache_date
+    # # case where the cache is null ie accessing for the first time
+    # if not cache.get('min_date1'):
+    #     cache.set('min_date1',str(prev_2M_date.date()))
+    # if not cache.get('max_date1'):
+    #     cache.set('max_date1',str(start_date))
+    #
+    # # variable to hold the start and end dates to be retrieved from cache
+    # start_cache_date=str(prev_2M_date.date())
+    # end_cache_date=start_date
+    # print("case--------------------------------------")
+    # # case 1  : required min date is greater than the max cached date
+    # if pd.to_datetime(prev_2M_date)> pd.to_datetime(str(cache.get('max_date1'), 'utf-8')):
+    #     print("case1")
+    #
+    #     retrieve_start_date=str(prev_2M_date.date())
+    #     retrieve_end_date=start_date
+    #     cache.set('min_date1',str(prev_2M_date.date()))
+    #     cache.set('max_date1',start_date)
+    #     flag=1
+    #
+    # # case 2: required max date is greater than the min cached date
+    # elif pd.to_datetime(start_date) < pd.to_datetime(str(cache.get('min_date1'), 'utf-8')):
+    #     print("case2")
+    #
+    #     retrieve_start_date = start_date
+    #     retrieve_end_date = str(prev_2M_date.date())
+    #     cache.set('min_date1', str(prev_2M_date.date()))
+    #     cache.set('max_date1', start_date)
+    #     flag=1
+    #
+    # # case 3:required min date is greater than the min cached date but required max date is less than the cached max date
+    # elif (pd.to_datetime(prev_2M_date)> pd.to_datetime(str(cache.get('min_date1'), 'utf-8'))) and not (pd.to_datetime(start_date) < pd.to_datetime(str(cache.get('max_date1'), 'utf-8'))):
+    #     print("case3")
+    #
+    #     start_cache_date=str(pd.to_datetime(prev_2M_date).date())
+    #     end_cache_date=cache.get('max_date1')
+    #     retrieve_start_date=cache.get('max_date1')
+    #     retrieve_end_date=start_date
+    #     cache.set('max_date1',start_date)
+    #     flag=1
+    #
+    # # case4 : required min date is less than the cached min date
+    # elif pd.to_datetime(prev_2M_date) <= pd.to_datetime(str(cache.get('min_date1'), 'utf-8')) :
+    #     print("case4")
+    #     start_cache_date=cache.get('min_date1')
+    #     end_cache_date=start_date
+    #     retrieve_start_date=str(prev_2M_date.date())
+    #     retrieve_end_date=cache.get('min_date1')
+    #     cache.set('min_date1',str(prev_2M_date.date()))
+    #     flag=1
+    #
+    # start_cache_date = str(start_cache_date, 'utf-8') if isinstance(start_cache_date, bytes) else start_cache_date
+    # end_cache_date = str(end_cache_date, 'utf-8') if isinstance(end_cache_date, bytes) else end_cache_date
+    #
+    # print(start_cache_date,end_cache_date,retrieve_start_date,retrieve_end_date)
+    #
+    # # loop through the cache start date variable to cached end date variable
+    # while pd.to_datetime(start_cache_date)!= pd.to_datetime(end_cache_date):
+    #     if pd.to_datetime(start_cache_date).day_name() not in ['Saturday','Sunday']:
+    #
+    #         # Exsuring the data is in the cache , if not call the api
+    #         print("cached date",start_cache_date)
+    #         if cache.hgetall(start_cache_date):
+    #             df_dict['base'].append(float(cache.hget(start_cache_date,data['base'])))
+    #             df_dict['target'].append(float(cache.hget(start_cache_date,data['target'])))
+    #             df_dict['date'].append(start_cache_date)
+    #             start_cache_date=pd.to_datetime(start_cache_date).date()+pd.DateOffset(1)
+    #             start_cache_date=str(start_cache_date.date())
+    #             # x = str(x, 'utf-8') if isinstance(x, bytes) else str(x)
+    #             # y = str(y, 'utf-8') if isinstance(y, bytes) else str(y)
+    #         else:
+    #             # If there is missing value in the cache ,break
+    #             retrieve_start_date=start_cache_date
+    #
+    #             flag=1
+    #             break
+    #     else:
+    #         start_cache_date = pd.to_datetime(start_cache_date).date() + pd.DateOffset(1)
+    #         start_cache_date = str(start_cache_date.date())
+    #
+    # retrieve_start_date=str(retrieve_start_date,'utf-8') if isinstance(retrieve_start_date,bytes) else retrieve_start_date
+    # retrieve_end_date=str(retrieve_end_date,'utf-8') if isinstance(retrieve_end_date,bytes) else retrieve_end_date
+    # # cache.set('min_date1',str(cache.get('min_date1'),'utf-8')) if isinstance(cache.get('min_date1'),bytes) else 0
+    # # cache.set('max_date1',str(cache.get('max_date1'),'utf-8')) if isinstance(cache.get('max_date1'),bytes) else 0
 
     # loop through the cache start date variable to cached end date variable
-    while pd.to_datetime(start_cache_date)!= pd.to_datetime(end_cache_date):
-        if pd.to_datetime(start_cache_date).day_name() not in ['Saturday','Sunday']:
+
+    # print(retrieve_star/t_date,retrieve_end_date)
+    date_list=[]
+    while retrieve_start_date.date()!= retrieve_end_date:
+        if pd.to_datetime(str(retrieve_start_date)).day_name() not in ['Saturday','Sunday']:
 
             # Exsuring the data is in the cache , if not call the api
-            print(start_cache_date)
+            start_cache_date=str(retrieve_start_date.date())
+            # print(pd.to_datetime(str(retrieve_start_date)).day_name(),start_cache_date,cache.hget(start_cache_date,'USD'))
             if cache.hgetall(start_cache_date):
                 df_dict['base'].append(float(cache.hget(start_cache_date,data['base'])))
                 df_dict['target'].append(float(cache.hget(start_cache_date,data['target'])))
                 df_dict['date'].append(start_cache_date)
-                start_cache_date=pd.to_datetime(start_cache_date).date()+pd.DateOffset(1)
-                start_cache_date=str(start_cache_date.date())
-                # x = str(x, 'utf-8') if isinstance(x, bytes) else str(x)
-                # y = str(y, 'utf-8') if isinstance(y, bytes) else str(y)
+                retrieve_start_date=retrieve_start_date+pd.DateOffset(1)
+
             else:
                 # If there is missing value in the cache ,break
-                retrieve_start_date=start_cache_date
+                date_list.append(str(retrieve_start_date.date()))
+                retrieve_start_date = retrieve_start_date + pd.DateOffset(1)
+                print(retrieve_start_date,"not present")
                 flag=1
-                break
-        else:
-            start_cache_date = pd.to_datetime(start_cache_date).date() + pd.DateOffset(1)
-            start_cache_date = str(start_cache_date.date())
 
-    # retrieve_start_date=str(retrieve_start_date,'utf-8') if isinstance(retrieve_start_date,bytes) else retrieve_start_date
-    # retrieve_end_date=str(retrieve_end_date,'utf-8') if isinstance(retrieve_end_date,bytes) else retrieve_end_date
-    # cache.set('min_date1',str(cache.get('min_date1'),'utf-8')) if isinstance(cache.get('min_date1'),bytes) else 0
-    # cache.set('max_date1',str(cache.get('max_date1'),'utf-8')) if isinstance(cache.get('max_date1'),bytes) else 0
+        else:
+            retrieve_start_date = retrieve_start_date + pd.DateOffset(1)
+
 
     # if more data is to be retrieved
     if flag:
-        url='https://api.exchangeratesapi.io/history?start_at={}&end_at={}'.format(retrieve_start_date,retrieve_end_date)
-        print(url)
+        url='https://api.exchangeratesapi.io/history?start_at={}&end_at={}'.format(min(date_list),max(date_list))
+        print("request masd-------------------------------------------------",url)
         response=requests.get(url).json()['rates']
 
         for key,value in response.items():
