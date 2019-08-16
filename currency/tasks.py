@@ -8,11 +8,14 @@ from .training import train,transform,predict_values,predict_transform
 import requests
 # from django.core.cache import cache
 from django_redis import get_redis_connection
-cache= get_redis_connection("default")
+cache= get_redis_connection("local")
 
 
 def validate_fields(requests):
-    data=upload(requests)
+    try:
+        data=upload(requests)
+    except:
+        return "Please enter valid details"
     date=data['date']
     available_currencies=['CAD', 'HKD', 'ISK', 'PHP', 'DKK', 'HUF', 'CZK', 'AUD', 'RON', 'SEK', 'IDR', 'INR',
                           'BRL', 'RUB', 'HRK', 'JPY', 'THB', 'CHF', 'SGD', 'PLN', 'BGN', 'TRY', 'CNY', 'NOK', 'NZD',
@@ -41,9 +44,6 @@ def validate_fields(requests):
         date_obj = datetime.datetime.strptime(date ,date_format)
     except :
         return "Incorrect data format, should be YYYY-MM-DD"
-
-
-
 
 
 def process(request):
@@ -77,6 +77,9 @@ def upload(request):
 
     if pd.to_datetime(data['date'])> pd.datetime.now():
         data['date']=str(pd.datetime.now().date().strftime('%Y-%m-%d'))
+    if pd.to_datetime(data['date'])< pd.to_datetime('1999-03-01'):
+        print("less")
+        data['date']='2009-03-01'
     return data
 
 
