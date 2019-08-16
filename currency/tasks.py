@@ -8,7 +8,7 @@ from .training import train,transform,predict_values,predict_transform
 import requests
 # from django.core.cache import cache
 from django_redis import get_redis_connection
-cache= get_redis_connection("local")
+cache= get_redis_connection("default")
 
 
 def validate_fields(requests):
